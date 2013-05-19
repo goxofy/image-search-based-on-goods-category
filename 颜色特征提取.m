@@ -1,23 +1,29 @@
-function Descriptor = ColorLayout(Image)
-Img = Image;
+%% 读入图像
+filename = num2str(1);
+str1 = ('E:\桌面\goodspic\微软亚洲研究院PI100\PI100_test\');
+str2 = ('.jpg');
+imgpath = strcat(str1,filename,str2);
+Img = imread(imgpath);
 
-%%颜色分割%%
-%%代表色选择%%
-
+%% 获取图像尺寸
 [m,n,k] = size(Img);
 
+%% 把图像分成 8×8=64 块，并求出每一块的具体位置
 cnum = 8;
 ch = floor(m/cnum); cw = floor(n/cnum);
-t1 = (0:(cnum-1))*ch + 1; t2 = (1:cnum)*ch;
-t3 = (0:(cnum-1))*cw + 1; t4 = (1:cnum)*cw;
+h1 = (0:(cnum-1))*ch + 1; h2 = (1:cnum)*ch;
+w1 = (0:(cnum-1))*cw + 1; w2 = (1:cnum)*cw;
 
+%% 生成一个三维全零矩阵，用来临时存放每一个分块的数据
 I = zeros([cnum,cnum,3]);
+
+%% 利用循环对每个分块进行处理,找出每个分块的代表色
 for i = 1 : cnum
     for j = 1 : cnum 
         lstart=(i-1)*ch;
         hstart=(j-1)*cw;
                    
-        temp = Img(t1(i):t2(i), t3(j):t4(j), :); 
+        temp = Img(h1(i):h2(i), w1(j):w2(j), :); 
         
         for p=1:ch
            for q=1:cw
@@ -41,10 +47,10 @@ for i = 1 : cnum
     end
 end
 
-%%DCT转换%%
+%% 转换到YCbCr颜色空间，这个操作会同时将三个维度同时转换
+I=rgb2ycbcr(I); 
 
-I=rgb2ycbcr(I);   %转换为YCbCr色彩空间
-
+%% 对每个分块进行DCT变换
 DCTY  = I(:,:,1);
 DCTCb = I(:,:,2);
 DCTCr = I(:,:,3);
@@ -52,7 +58,7 @@ DCTCr = I(:,:,3);
 T=dctmtx(8);
 DCTcoe1=blkproc(DCTY,[8,8],'P1*x*P2',T,T');
 DCTcoe2=blkproc(DCTCb,[8,8],'P1*x*P2',T,T');
-DCTcoe3=blkproc(DCTCr,[8,8],'P1*x*P2',T,T');
+DCTcoe3=blkproc(DCTCr,[8,8],'P1*x*P2',T,T'); %%%对每个分块应用矩阵式P1×P2进行处理,其中P1=T,P2=T
  
 mask=[1 1 1 1 0 0 0 0
       1 1 1 0 0 0 0 0
@@ -61,33 +67,12 @@ mask=[1 1 1 1 0 0 0 0
       0 0 0 0 0 0 0 0
       0 0 0 0 0 0 0 0
       0 0 0 0 0 0 0 0
-      0 0 0 0 0 0 0 0];
+      0 0 0 0 0 0 0 0]; %% 二值掩模,用来压缩DCT的系数
   
-B1=blkproc(DCTcoe1,[8 8],'P1.*x',mask);
+B1=blkproc(DCTcoe1,[8 8],'P1.*x',mask); %% 只保留DCT变换的10个系数
 B2=blkproc(DCTcoe2,[8 8],'P1.*x',mask);
 B3=blkproc(DCTcoe3,[8 8],'P1.*x',mask);
 
-I(:,:,1)=blkproc(B1,[8 8],'P1*x*P2',T',T);
+I(:,:,1)=blkproc(B1,[8 8],'P1*x*P2',T',T); %% 逆DCT变换,用来重构图像
 I(:,:,2)=blkproc(B2,[8 8],'P1*x*P2',T',T);
 I(:,:,3)=blkproc(B3,[8 8],'P1*x*P2',T',T);
-
-% Set up array for fast conversion from row/column coordinates to
-% zig zag order. 下标从零开始，从MPEG的C代码拷贝过来的
-zigzag = [ 0, 1, 8, 16, 9, 2, 3, 10, ...
-      17, 24, 32, 25, 18, 11, 4, 5, ...
-      12, 19, 26, 33, 40, 48, 41, 34, ...
-      27, 20, 13, 6, 7, 14, 21, 28, ...
-      35, 42, 49, 56, 57, 50, 43, 36, ...
-      29, 22, 15, 23, 30, 37, 44, 51, ...
-      58, 59, 52, 45, 38, 31, 39, 46, ...
-      53, 60, 61, 54, 47, 55, 62, 63];
-
-zigzag = zigzag + 1;
-% 将输入块变成3x64的向量
-
-D(1,:) = reshape(I(:,:,1)',1,64); 
-D(2,:) = reshape(I(:,:,2)',1,64);
-D(3,:) = reshape(I(:,:,3)',1,64);
-
-Descriptor = D(:,zigzag); % 对I按照查表方式取元素，得到 zig-zag 扫描结果
-
