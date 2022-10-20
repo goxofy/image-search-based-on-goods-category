@@ -2,7 +2,7 @@
 
 img = 1;      
 filename = num2str(img);
-str1 = ('E:\jpeg\data\');
+str1 = ('path_to_dir');
 str2 = ('.dat');
 img = strcat(str1,filename,str2);
 fid = fopen(img,'rb');
