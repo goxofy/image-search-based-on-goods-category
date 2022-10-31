@@ -1,6 +1,6 @@
 %% 读入图像
 filename = num2str(1);
-str1 = ('E:\桌面\goodspic\微软亚洲研究院PI100\PI100_test\');
+str1 = ('微软亚洲研究院PI100\PI100_test\');
 str2 = ('.jpg');
 imgpath = strcat(str1,filename,str2);
 Img = imread(imgpath);
